@@ -9,6 +9,7 @@ const (
 
 type Operation struct {
 	Type      string    `json:"type"`
+	Revision  int       `json:"revision"`
 	Index     int       `json:"index"`
 	Length    int       `json:"length"`
 	Text      string    `json:"text"`

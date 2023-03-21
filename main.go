@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/ssau-fiit/cloudate-api/common/uuid"
+	"github.com/ssau-fiit/cloudate-api/database"
 	"net/http"
+	"time"
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,20 +29,10 @@ var doc []byte
 
 func init() {
 	conns = make(map[string]*websocket.Conn)
-	//localOps = append(localOps, Operation{
-	//	Type:   opTypeInsert,
-	//	Index:  1,
-	//	Length: 6,
-	//	Text:   "привет",
-	//})
 	doc = make([]byte, 0, 1000)
 }
 
-type AuthRequest struct {
-	Name string `json:"name"`
-}
-
-func auth(c *gin.Context) {
+func handleAuth(c *gin.Context) {
 	var r AuthRequest
 	err := c.BindJSON(&r)
 	if err != nil {
@@ -55,11 +49,78 @@ func auth(c *gin.Context) {
 	})
 }
 
+func handleGetDocuments(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	db := database.Database()
+	keys, err := db.Keys(ctx, "documents.*").Result()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get document keys")
+		c.AbortWithStatus(500)
+		return
+	}
+
+	var documents []Document
+	for _, key := range keys {
+		docMap, err := database.Database().HGetAll(ctx, key).Result()
+		if err != nil {
+			log.Error().Err(err).Msg("error getting document")
+			c.AbortWithStatus(500)
+			return
+		}
+
+		var doc Document
+		err = mapstructure.Decode(docMap, &doc)
+		if err != nil {
+			log.Error().Err(err).Msg("error decoding map")
+			c.AbortWithStatus(500)
+			return
+		}
+		documents = append(documents, doc)
+	}
+
+	c.JSON(200, documents)
+}
+
+func handleCreateDocument(c *gin.Context) {
+	var r CreateDocRequest
+	err := c.BindJSON(&r)
+	if err != nil {
+		log.Error().Err(err).Msg("bad request")
+		c.AbortWithStatus(500)
+		return
+	}
+	if r.Author == "" {
+		r.Author = "Автор"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	uid := uuid.Must(uuid.NewV4()).String()
+	_, err = database.Database().HSet(ctx, fmt.Sprintf("documents.%v", uid), "id", uid, "name", r.Name, "author", r.Author).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error uploading document")
+		c.AbortWithStatus(500)
+		return
+	}
+
+	c.JSON(200, Document{
+		ID:     uid,
+		Name:   r.Name,
+		Author: r.Author,
+	})
+}
+
 func main() {
 	r := gin.Default()
-	r.POST("/api/auth", auth)
 
 	v1 := r.Group("/api/v1")
+	v1.POST("/handleAuth", handleAuth)
+	v1.GET("/documents", handleGetDocuments)
+	v1.POST("/documents/create", handleCreateDocument)
+
 	v1.GET("/socket", handleSocket)
 
 	err := r.Run("0.0.0.0:8080")
