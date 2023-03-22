@@ -41,11 +41,31 @@ func handleAuth(c *gin.Context) {
 		return
 	}
 
-	id := uuid.Must(uuid.NewV4())
-	uid := id.String()
+	db := database.Database()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 
-	c.JSON(http.StatusOK, gin.H{
-		"session_id": uid,
+	res, err := db.HGetAll(ctx, fmt.Sprintf("users.%v", r.Username)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to find user")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	var user User
+	err = mapstructure.Decode(res, &user)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal user structure")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if user.Password != r.Password {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"user_id": user.ID,
 	})
 }
 
@@ -117,7 +137,7 @@ func main() {
 	r := gin.Default()
 
 	v1 := r.Group("/api/v1")
-	v1.POST("/handleAuth", handleAuth)
+	v1.POST("/auth", handleAuth)
 	v1.GET("/documents", handleGetDocuments)
 	v1.POST("/documents/create", handleCreateDocument)
 

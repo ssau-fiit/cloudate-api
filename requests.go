@@ -1,7 +1,8 @@
 package main
 
 type AuthRequest struct {
-	Name string `json:"name"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type CreateDocRequest struct {
