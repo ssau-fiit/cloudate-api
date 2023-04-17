@@ -7,10 +7,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
-	"github.com/ssau-fiit/cloudocs-api/common/uuid"
 	"github.com/ssau-fiit/cloudocs-api/database"
 	api_pb "github.com/ssau-fiit/cloudocs-api/proto/api"
+	"math/rand"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -69,6 +70,12 @@ func handleAuth(c *gin.Context) {
 	})
 }
 
+func getRandomNumber() int {
+	min := 111111
+	max := 999999
+	return rand.Intn(max-min) + min
+}
+
 func handleGetDocuments(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -120,7 +127,7 @@ func handleCreateDocument(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	uid := uuid.Must(uuid.NewV4()).String()
+	uid := getRandomNumber()
 	_, err = db.HSet(ctx, fmt.Sprintf("documents.%v", uid), "id", uid, "name", r.Name, "author", r.Author).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("error uploading document")
@@ -136,7 +143,7 @@ func handleCreateDocument(c *gin.Context) {
 	}
 
 	c.JSON(200, Document{
-		ID:     uid,
+		ID:     strconv.Itoa(uid),
 		Name:   r.Name,
 		Author: r.Author,
 	})

@@ -25,7 +25,3 @@ message DocumentUpdate {
   bytes text = 1;
   int32 last_revision = 2;
 }
-
-
-    при (0) - 1
-    пока (0) - 1
