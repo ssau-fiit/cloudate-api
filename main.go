@@ -135,12 +135,12 @@ func handleCreateDocument(c *gin.Context) {
 		return
 	}
 
-	if err := db.Set(ctx, fmt.Sprintf("documents.%v.text", uid), "", 0).Err(); err != nil {
-		log.Error().Err(err).Msg("error creating document text")
-		db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
+	//if err := db.Set(ctx, fmt.Sprintf("documents.%v.text", uid), "", 0).Err(); err != nil {
+	//	log.Error().Err(err).Msg("error creating document text")
+	//	db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
+	//	c.AbortWithStatus(http.StatusInternalServerError)
+	//	return
+	//}
 
 	c.JSON(200, Document{
 		ID:     strconv.Itoa(uid),
