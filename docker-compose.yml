@@ -1,0 +1,33 @@
+version: "3.7"
+services:
+
+  redis:
+    image: bitnami/redis:latest
+    container_name: redis
+    restart: unless-stopped
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - redis:/bitnami/redis/data
+    networks:
+      - backend
+
+  api:
+    build: .
+    container_name: api
+    environment:
+      REDIS_ADDR: "redis:6379"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    networks:
+      - backend
+
+volumes:
+  redis:
+
+networks:
+  backend:
+    name: backend
+    driver: bridge

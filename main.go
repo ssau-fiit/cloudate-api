@@ -1,17 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
-	"github.com/ssau-fiit/cloudate-api/common/uuid"
-	"github.com/ssau-fiit/cloudate-api/database"
+	"github.com/ssau-fiit/cloudocs-api/common/uuid"
+	"github.com/ssau-fiit/cloudocs-api/database"
+	api_pb "github.com/ssau-fiit/cloudocs-api/proto/api"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -23,13 +23,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var conns map[string]*websocket.Conn
-var localOps []Operation
-var doc []byte
+var (
+	operationsMu   sync.RWMutex
+	operationsList map[string][]*api_pb.Operation
+)
 
 func init() {
-	conns = make(map[string]*websocket.Conn)
-	doc = make([]byte, 0, 1000)
+	operationsList = make(map[string][]*api_pb.Operation)
 }
 
 func handleAuth(c *gin.Context) {
@@ -115,14 +115,23 @@ func handleCreateDocument(c *gin.Context) {
 		r.Author = "Автор"
 	}
 
+	db := database.Database()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
 	uid := uuid.Must(uuid.NewV4()).String()
-	_, err = database.Database().HSet(ctx, fmt.Sprintf("documents.%v", uid), "id", uid, "name", r.Name, "author", r.Author).Result()
+	_, err = db.HSet(ctx, fmt.Sprintf("documents.%v", uid), "id", uid, "name", r.Name, "author", r.Author).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("error uploading document")
 		c.AbortWithStatus(500)
+		return
+	}
+
+	if err := db.Set(ctx, fmt.Sprintf("documents.%v.text", uid), "", 0).Err(); err != nil {
+		log.Error().Err(err).Msg("error creating document text")
+		db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
@@ -141,7 +150,7 @@ func main() {
 	v1.GET("/documents", handleGetDocuments)
 	v1.POST("/documents/create", handleCreateDocument)
 
-	v1.GET("/socket", handleSocket)
+	v1.GET("/documents/:id", handleSocket)
 
 	err := r.Run("0.0.0.0:8080")
 	if err != nil {
@@ -150,114 +159,62 @@ func main() {
 }
 
 func handleSocket(c *gin.Context) {
-	sessionID := uuid.Must(uuid.NewV4()).String()
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to upgrade connection")
+	docID := c.Param("id")
+	if docID == "" {
+		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if exists, err := database.Database().
+		Exists(ctx, fmt.Sprintf("documents.%v", docID)).
+		Result(); exists == 0 || err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	rawRes, err := database.Database().HGetAll(ctx, fmt.Sprintf("documents.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting document")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	var doc Document
+	err = mapstructure.Decode(rawRes, &doc)
+	if err != nil {
+		log.Error().Err(err).Msg("error decoding document")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("error upgrading connection")
+		c.AbortWithStatus(http.StatusUpgradeRequired)
+	}
 	defer conn.Close()
-	// TODO: create a copy of the document for this session
 
-	conns[sessionID] = conn
-
-	for {
-		// Read incoming message from client
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to read message from client")
-			return
-		}
-		// Decode incoming operation
-		var remoteOps []Operation
-		err = json.Unmarshal(msg, &remoteOps)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to unmarshal client message")
-			continue
-		}
-
-		// Применить удаленные операции к локальным
-		transformedOps := transformRemoteOperations(localOps, remoteOps)
-
-		// Применяем удаленные операции к локальному документу
-		updatedDoc, err := applyLocalOperations(doc, transformedOps)
-		if err != nil {
-			log.Error().Err(err).Msg("could not apply remote operations to local copy")
-			continue
-		}
-
-		// Обновляем список локальных операций
-		localOps = append(localOps, remoteOps...)
-
-		// Уведомляем остальных клиентов об изменениях
-		broadcast(conns, updatedDoc)
-	}
+	//for {
+	//	// Read incoming message from client
+	//	_, msg, err := conn.ReadMessage()
+	//
+	//	go func() {
+	//		if err != nil {
+	//			log.Error().Err(err).Msg("failed to read message from client")
+	//			return
+	//		}
+	//
+	//		...
+	//
+	//		operationsList = append(operationsList, op)
+	//	}()
+	//}
 }
 
-func applyLocalOperations(doc []byte, ops []Operation) ([]byte, error) {
-	buffer := bytes.NewBuffer(doc)
-	offset := 0
-	for _, op := range ops {
-		switch op.Type {
-		case opTypeInsert:
-			// Move the buffer to the insertion position
-			buffer.Next(op.Index - offset)
-			// Insert the new text
-			_, err := buffer.Write([]byte(op.Text))
-			if err != nil {
-				return nil, err
-			}
-			// Update the offset to account for the insertion
-			offset = op.Index + op.Length
-		case opTypeDelete:
-			// Move the buffer to the deletion position
-			buffer.Next(op.Index - offset)
-			// Delete the specified number of bytes
-			buffer.Next(op.Length)
-			// Update the offset to account for the deletion
-			offset = op.Index
-		default:
-			return nil, fmt.Errorf("invalid operation type: %v", op.Type)
-		}
-	}
-	return buffer.Bytes(), nil
-}
-
-func transformRemoteOperations(localOps, remoteOps []Operation) []Operation {
-	transformedOps := make([]Operation, len(remoteOps))
-	offset := 0
-
-	// Apply local operations to remote operations
-	for _, localOp := range localOps {
-		for j, remoteOp := range remoteOps {
-			if remoteOp.Type == opTypeInsert && localOp.Index > remoteOp.Index {
-				offset += len(localOp.Text)
-			} else if remoteOp.Type == opTypeDelete && localOp.Index > remoteOp.Index+remoteOp.Length {
-				offset -= remoteOp.Length
-			}
-			localOps[j].Index += offset
-		}
-
-		// Применяем трансформированные операции к локальным
-		for i, op := range transformedOps {
-			if op.Index > localOp.Index {
-				if localOp.Type == opTypeInsert {
-					transformedOps[i].Index += len(localOp.Text)
-				} else if localOp.Type == opTypeDelete {
-					transformedOps[i].Index -= localOp.Length
-				}
-			}
-		}
-	}
-
-	return transformedOps
-}
-
-func broadcast(connections map[string]*websocket.Conn, doc []byte) {
-	for _, conn := range connections {
-		err := conn.WriteMessage(websocket.TextMessage, doc)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to write message")
-		}
-	}
-}
+//func opsHandler(pendingOps chan api_pb.Operation) {
+//	for op := range pendingOps {
+//
+//	}
+//}

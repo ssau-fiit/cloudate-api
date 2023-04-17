@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package api_pb;
+option go_package = "github.com/ssau-fiit/cloudocs-api/api_pb";
+
+enum OpType {
+  INSERT = 0;
+  DELETE = 1;
+}
+
+message Operation {
+  OpType type = 1;
+  int32 index = 2;
+  int32 length = 3;
+  bytes text = 4;
+  int32 revision = 5;
+  int64 timestamp = 6;
+}
+
+message OperationAck {
+  int32 revision = 1;
+}
+
+message DocumentUpdate {
+  bytes text = 1;
+  int32 last_revision = 2;
+}
+
+
+    при (0) - 1
+    пока (0) - 1
