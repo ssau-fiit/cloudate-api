@@ -9,3 +9,7 @@ type CreateDocRequest struct {
 	Name   string `json:"name"`
 	Author string `json:"author"`
 }
+
+type SaveDocumentRequest struct {
+	Text string `json:"text"`
+}

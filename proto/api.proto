@@ -9,19 +9,14 @@ enum OpType {
 }
 
 message Operation {
-  OpType type = 1;
-  int32 index = 2;
-  int32 length = 3;
-  bytes text = 4;
-  int32 revision = 5;
-  int64 timestamp = 6;
+  string userID = 1;
+  OpType type = 2;
+  int32 index = 3;
+  int32 len = 4;
+  string text = 5;
+  int32 version = 6;
 }
 
 message OperationAck {
-  int32 revision = 1;
-}
-
-message DocumentUpdate {
-  bytes text = 1;
-  int32 last_revision = 2;
+  int32 last_version = 1;
 }

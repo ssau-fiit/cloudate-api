@@ -8,11 +8,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/ssau-fiit/cloudocs-api/database"
-	api_pb "github.com/ssau-fiit/cloudocs-api/proto/api"
 	"math/rand"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -25,12 +23,12 @@ var upgrader = websocket.Upgrader{
 }
 
 var (
-	operationsMu   sync.RWMutex
-	operationsList map[string][]*api_pb.Operation
+// operationsMu   sync.RWMutex
+// operationsList map[string][]*api_pb.Operation
 )
 
 func init() {
-	operationsList = make(map[string][]*api_pb.Operation)
+	//operationsList = make(map[string][]*api_pb.Operation)
 }
 
 func handleAuth(c *gin.Context) {
@@ -135,12 +133,12 @@ func handleCreateDocument(c *gin.Context) {
 		return
 	}
 
-	//if err := db.Set(ctx, fmt.Sprintf("documents.%v.text", uid), "", 0).Err(); err != nil {
-	//	log.Error().Err(err).Msg("error creating document text")
-	//	db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
-	//	c.AbortWithStatus(http.StatusInternalServerError)
-	//	return
-	//}
+	if err := db.Set(ctx, fmt.Sprintf("texts.%v", uid), "Начните писать", 0).Err(); err != nil {
+		log.Error().Err(err).Msg("error creating document text")
+		db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 
 	c.JSON(200, Document{
 		ID:     strconv.Itoa(uid),
@@ -157,12 +155,111 @@ func main() {
 	v1.GET("/documents", handleGetDocuments)
 	v1.POST("/documents/create", handleCreateDocument)
 
-	v1.GET("/documents/:id", handleSocket)
+	v1.GET("/documents/:id", handleGetDocument)
+	v1.POST("/documents/:id", handleSaveDocument)
+	v1.DELETE("/documents/:id", handleDeleteDocument)
 
 	err := r.Run("0.0.0.0:8080")
 	if err != nil {
 		log.Fatal().Err(err).Msg("could not start server")
 	}
+}
+
+func handleGetDocument(c *gin.Context) {
+	docID := c.Param("id")
+	if docID == "" {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if exists, err := database.Database().
+		Exists(ctx, fmt.Sprintf("documents.%v", docID)).
+		Result(); exists == 0 || err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	text, err := database.Database().Get(ctx, fmt.Sprintf("texts.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting document text")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"text": text,
+	})
+}
+
+func handleSaveDocument(c *gin.Context) {
+	var r SaveDocumentRequest
+	err := c.BindJSON(&r)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	docID := c.Param("id")
+	if docID == "" {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if exists, err := database.Database().
+		Exists(ctx, fmt.Sprintf("documents.%v", docID)).
+		Result(); exists == 0 || err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	_, err = database.Database().Set(ctx, fmt.Sprintf("texts.%v", docID), r.Text, 0).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error saving document")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Status(200)
+}
+
+func handleDeleteDocument(c *gin.Context) {
+	docID := c.Param("id")
+	if docID == "" {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	if exists, err := database.Database().
+		Exists(ctx, fmt.Sprintf("documents.%v", docID)).
+		Result(); exists == 0 || err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	_, err := database.Database().Del(ctx, fmt.Sprintf("documents.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting document info")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = database.Database().Del(ctx, fmt.Sprintf("texts.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error deleting document text")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Status(200)
 }
 
 func handleSocket(c *gin.Context) {
@@ -212,6 +309,8 @@ func handleSocket(c *gin.Context) {
 	//			log.Error().Err(err).Msg("failed to read message from client")
 	//			return
 	//		}
+	//
+	//
 	//
 	//		...
 	//

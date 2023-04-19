@@ -48,12 +48,12 @@ func (OpType) EnumDescriptor() ([]byte, []int) {
 }
 
 type Operation struct {
-	Type                 OpType   `protobuf:"varint,1,opt,name=type,proto3,enum=api_pb.OpType" json:"type,omitempty"`
-	Index                int32    `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-	Length               int32    `protobuf:"varint,3,opt,name=length,proto3" json:"length,omitempty"`
-	Text                 []byte   `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	Revision             int32    `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"`
-	Timestamp            int64    `protobuf:"varint,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	UserID               string   `protobuf:"bytes,1,opt,name=userID,proto3" json:"userID,omitempty"`
+	Type                 OpType   `protobuf:"varint,2,opt,name=type,proto3,enum=api_pb.OpType" json:"type,omitempty"`
+	Index                int32    `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	Len                  int32    `protobuf:"varint,4,opt,name=len,proto3" json:"len,omitempty"`
+	Text                 string   `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
+	Version              int32    `protobuf:"varint,6,opt,name=version,proto3" json:"version,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -92,6 +92,13 @@ func (m *Operation) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Operation proto.InternalMessageInfo
 
+func (m *Operation) GetUserID() string {
+	if m != nil {
+		return m.UserID
+	}
+	return ""
+}
+
 func (m *Operation) GetType() OpType {
 	if m != nil {
 		return m.Type
@@ -106,36 +113,29 @@ func (m *Operation) GetIndex() int32 {
 	return 0
 }
 
-func (m *Operation) GetLength() int32 {
+func (m *Operation) GetLen() int32 {
 	if m != nil {
-		return m.Length
+		return m.Len
 	}
 	return 0
 }
 
-func (m *Operation) GetText() []byte {
+func (m *Operation) GetText() string {
 	if m != nil {
 		return m.Text
 	}
-	return nil
+	return ""
 }
 
-func (m *Operation) GetRevision() int32 {
+func (m *Operation) GetVersion() int32 {
 	if m != nil {
-		return m.Revision
-	}
-	return 0
-}
-
-func (m *Operation) GetTimestamp() int64 {
-	if m != nil {
-		return m.Timestamp
+		return m.Version
 	}
 	return 0
 }
 
 type OperationAck struct {
-	Revision             int32    `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	LastVersion          int32    `protobuf:"varint,1,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -174,64 +174,9 @@ func (m *OperationAck) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_OperationAck proto.InternalMessageInfo
 
-func (m *OperationAck) GetRevision() int32 {
+func (m *OperationAck) GetLastVersion() int32 {
 	if m != nil {
-		return m.Revision
-	}
-	return 0
-}
-
-type DocumentUpdate struct {
-	Text                 []byte   `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
-	LastRevision         int32    `protobuf:"varint,2,opt,name=last_revision,json=lastRevision,proto3" json:"last_revision,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *DocumentUpdate) Reset()         { *m = DocumentUpdate{} }
-func (m *DocumentUpdate) String() string { return proto.CompactTextString(m) }
-func (*DocumentUpdate) ProtoMessage()    {}
-func (*DocumentUpdate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_00212fb1f9d3bf1c, []int{2}
-}
-func (m *DocumentUpdate) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *DocumentUpdate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_DocumentUpdate.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *DocumentUpdate) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DocumentUpdate.Merge(m, src)
-}
-func (m *DocumentUpdate) XXX_Size() int {
-	return m.Size()
-}
-func (m *DocumentUpdate) XXX_DiscardUnknown() {
-	xxx_messageInfo_DocumentUpdate.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_DocumentUpdate proto.InternalMessageInfo
-
-func (m *DocumentUpdate) GetText() []byte {
-	if m != nil {
-		return m.Text
-	}
-	return nil
-}
-
-func (m *DocumentUpdate) GetLastRevision() int32 {
-	if m != nil {
-		return m.LastRevision
+		return m.LastVersion
 	}
 	return 0
 }
@@ -240,33 +185,30 @@ func init() {
 	proto.RegisterEnum("api_pb.OpType", OpType_name, OpType_value)
 	proto.RegisterType((*Operation)(nil), "api_pb.Operation")
 	proto.RegisterType((*OperationAck)(nil), "api_pb.OperationAck")
-	proto.RegisterType((*DocumentUpdate)(nil), "api_pb.DocumentUpdate")
 }
 
 func init() { proto.RegisterFile("api.proto", fileDescriptor_00212fb1f9d3bf1c) }
 
 var fileDescriptor_00212fb1f9d3bf1c = []byte{
-	// 315 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x91, 0xc1, 0x4a, 0xc3, 0x40,
-	0x10, 0x86, 0x3b, 0xb6, 0x0d, 0x76, 0xa8, 0xa5, 0x2c, 0x22, 0x41, 0x24, 0x84, 0x78, 0x09, 0x85,
-	0xa6, 0xa0, 0x37, 0x6f, 0x4a, 0x73, 0x28, 0x88, 0x85, 0x58, 0x2f, 0x5e, 0xca, 0x36, 0x5d, 0xdb,
-	0xc5, 0x26, 0xbb, 0x74, 0x27, 0xd2, 0xbe, 0x89, 0xef, 0xe0, 0x8b, 0x78, 0xf4, 0x11, 0x24, 0xbe,
-	0x88, 0x34, 0x29, 0xd1, 0xde, 0xe6, 0xff, 0x76, 0xf8, 0xf9, 0xf7, 0x1f, 0x6c, 0x71, 0x2d, 0x03,
-	0xbd, 0x56, 0xa4, 0x98, 0xc5, 0xb5, 0x9c, 0xea, 0x99, 0xf7, 0x01, 0xd8, 0x1a, 0x6b, 0xb1, 0xe6,
-	0x24, 0x55, 0xca, 0x3c, 0x6c, 0xd0, 0x56, 0x0b, 0x1b, 0x5c, 0xf0, 0x3b, 0x57, 0x9d, 0xa0, 0x5c,
-	0x0a, 0xc6, 0x7a, 0xb2, 0xd5, 0x22, 0x2a, 0xde, 0xd8, 0x29, 0x36, 0x65, 0x3a, 0x17, 0x1b, 0xfb,
-	0xc8, 0x05, 0xbf, 0x19, 0x95, 0x82, 0x9d, 0xa1, 0xb5, 0x12, 0xe9, 0x82, 0x96, 0x76, 0xbd, 0xc0,
-	0x7b, 0xc5, 0x18, 0x36, 0x48, 0x6c, 0xc8, 0x6e, 0xb8, 0xe0, 0xb7, 0xa3, 0x62, 0x66, 0xe7, 0x78,
-	0xbc, 0x16, 0x6f, 0xd2, 0x48, 0x95, 0xda, 0xcd, 0x62, 0xbb, 0xd2, 0xec, 0x02, 0x5b, 0x24, 0x13,
-	0x61, 0x88, 0x27, 0xda, 0xb6, 0x5c, 0xf0, 0xeb, 0xd1, 0x1f, 0xf0, 0x7a, 0xd8, 0xae, 0xc2, 0xde,
-	0xc6, 0xaf, 0x07, 0x4e, 0x70, 0xe8, 0xe4, 0x8d, 0xb0, 0x33, 0x54, 0x71, 0x96, 0x88, 0x94, 0x9e,
-	0xf4, 0x9c, 0x93, 0xa8, 0xb2, 0xc0, 0xbf, 0x2c, 0x97, 0x78, 0xb2, 0xe2, 0x86, 0xa6, 0x95, 0x4d,
-	0xf9, 0xab, 0xf6, 0x0e, 0x46, 0x7b, 0xd6, 0x73, 0xd1, 0x2a, 0x2b, 0x60, 0x88, 0xd6, 0xe8, 0xe1,
-	0x31, 0x8c, 0x26, 0xdd, 0xda, 0x6e, 0x1e, 0x86, 0xf7, 0xe1, 0x24, 0xec, 0xc2, 0xdd, 0xcd, 0x67,
-	0xee, 0xc0, 0x57, 0xee, 0xc0, 0x77, 0xee, 0xc0, 0xfb, 0x8f, 0x53, 0x7b, 0xf6, 0x17, 0x92, 0x96,
-	0xd9, 0x2c, 0x88, 0x55, 0x32, 0x30, 0x86, 0x67, 0xfd, 0x17, 0x29, 0x69, 0x10, 0xaf, 0x54, 0x36,
-	0x57, 0xb1, 0xe9, 0x73, 0x2d, 0x07, 0x65, 0xbb, 0x33, 0xab, 0xb8, 0xc8, 0xf5, 0x6f, 0x00, 0x00,
-	0x00, 0xff, 0xff, 0x2c, 0x80, 0x6b, 0x56, 0x9e, 0x01, 0x00, 0x00,
+	// 283 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x3c, 0x90, 0xc1, 0x4a, 0xf3, 0x40,
+	0x14, 0x85, 0x3b, 0x7f, 0x9b, 0xf9, 0xc9, 0xb5, 0x94, 0x30, 0x88, 0xcc, 0x2a, 0xc4, 0xac, 0x82,
+	0xd0, 0x04, 0x75, 0xe7, 0x4e, 0x69, 0x16, 0x05, 0xb1, 0x10, 0x83, 0x0b, 0x37, 0x65, 0x92, 0x8e,
+	0x3a, 0x18, 0x33, 0x43, 0x66, 0x22, 0xed, 0x9b, 0xb8, 0xf1, 0x7d, 0x5c, 0xfa, 0x08, 0x12, 0x5f,
+	0x44, 0x32, 0xb1, 0xee, 0xce, 0x39, 0xf3, 0x0d, 0xf7, 0xdc, 0x0b, 0x2e, 0x53, 0x22, 0x56, 0x8d,
+	0x34, 0x92, 0x60, 0xa6, 0xc4, 0x5a, 0x15, 0xe1, 0x3b, 0x02, 0x77, 0xa5, 0x78, 0xc3, 0x8c, 0x90,
+	0x35, 0x39, 0x02, 0xdc, 0x6a, 0xde, 0x2c, 0x17, 0x14, 0x05, 0x28, 0x72, 0xb3, 0x5f, 0x47, 0x42,
+	0x98, 0x98, 0x9d, 0xe2, 0xf4, 0x5f, 0x80, 0xa2, 0xd9, 0xd9, 0x2c, 0x1e, 0x3e, 0xc7, 0x2b, 0x95,
+	0xef, 0x14, 0xcf, 0xec, 0x1b, 0x39, 0x04, 0x47, 0xd4, 0x1b, 0xbe, 0xa5, 0xe3, 0x00, 0x45, 0x4e,
+	0x36, 0x18, 0xe2, 0xc1, 0xb8, 0xe2, 0x35, 0x9d, 0xd8, 0xac, 0x97, 0x84, 0xc0, 0xc4, 0xf0, 0xad,
+	0xa1, 0x8e, 0x9d, 0x60, 0x35, 0xa1, 0xf0, 0xff, 0x95, 0x37, 0x5a, 0xc8, 0x9a, 0x62, 0x4b, 0xee,
+	0x6d, 0x78, 0x0a, 0xd3, 0xbf, 0x7a, 0x97, 0xe5, 0x33, 0x39, 0x86, 0x69, 0xc5, 0xb4, 0x59, 0xef,
+	0x71, 0x64, 0xf1, 0x83, 0x3e, 0xbb, 0x1b, 0xa2, 0x93, 0x00, 0xf0, 0x50, 0x8c, 0x00, 0xe0, 0xe5,
+	0xcd, 0x6d, 0x9a, 0xe5, 0xde, 0xa8, 0xd7, 0x8b, 0xf4, 0x3a, 0xcd, 0x53, 0x0f, 0x5d, 0x5d, 0x7c,
+	0x74, 0x3e, 0xfa, 0xec, 0x7c, 0xf4, 0xd5, 0xf9, 0xe8, 0xed, 0xdb, 0x1f, 0xdd, 0x47, 0x8f, 0xc2,
+	0x3c, 0xb5, 0x45, 0x5c, 0xca, 0x97, 0x44, 0x6b, 0xd6, 0xce, 0x1f, 0x84, 0x30, 0x49, 0x59, 0xc9,
+	0x76, 0x23, 0x4b, 0x3d, 0x67, 0x4a, 0x24, 0xc3, 0xce, 0x05, 0xb6, 0xf7, 0x3b, 0xff, 0x09, 0x00,
+	0x00, 0xff, 0xff, 0x3a, 0xcd, 0xe8, 0x74, 0x4c, 0x01, 0x00, 0x00,
 }
 
 func (m *Operation) Marshal() (dAtA []byte, err error) {
@@ -293,37 +235,39 @@ func (m *Operation) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Timestamp != 0 {
-		i = encodeVarintApi(dAtA, i, uint64(m.Timestamp))
+	if m.Version != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.Version))
 		i--
 		dAtA[i] = 0x30
-	}
-	if m.Revision != 0 {
-		i = encodeVarintApi(dAtA, i, uint64(m.Revision))
-		i--
-		dAtA[i] = 0x28
 	}
 	if len(m.Text) > 0 {
 		i -= len(m.Text)
 		copy(dAtA[i:], m.Text)
 		i = encodeVarintApi(dAtA, i, uint64(len(m.Text)))
 		i--
-		dAtA[i] = 0x22
+		dAtA[i] = 0x2a
 	}
-	if m.Length != 0 {
-		i = encodeVarintApi(dAtA, i, uint64(m.Length))
+	if m.Len != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.Len))
 		i--
-		dAtA[i] = 0x18
+		dAtA[i] = 0x20
 	}
 	if m.Index != 0 {
 		i = encodeVarintApi(dAtA, i, uint64(m.Index))
 		i--
-		dAtA[i] = 0x10
+		dAtA[i] = 0x18
 	}
 	if m.Type != 0 {
 		i = encodeVarintApi(dAtA, i, uint64(m.Type))
 		i--
-		dAtA[i] = 0x8
+		dAtA[i] = 0x10
+	}
+	if len(m.UserID) > 0 {
+		i -= len(m.UserID)
+		copy(dAtA[i:], m.UserID)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.UserID)))
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -352,49 +296,10 @@ func (m *OperationAck) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Revision != 0 {
-		i = encodeVarintApi(dAtA, i, uint64(m.Revision))
+	if m.LastVersion != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.LastVersion))
 		i--
 		dAtA[i] = 0x8
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *DocumentUpdate) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *DocumentUpdate) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *DocumentUpdate) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.LastRevision != 0 {
-		i = encodeVarintApi(dAtA, i, uint64(m.LastRevision))
-		i--
-		dAtA[i] = 0x10
-	}
-	if len(m.Text) > 0 {
-		i -= len(m.Text)
-		copy(dAtA[i:], m.Text)
-		i = encodeVarintApi(dAtA, i, uint64(len(m.Text)))
-		i--
-		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -416,24 +321,25 @@ func (m *Operation) Size() (n int) {
 	}
 	var l int
 	_ = l
+	l = len(m.UserID)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
 	if m.Type != 0 {
 		n += 1 + sovApi(uint64(m.Type))
 	}
 	if m.Index != 0 {
 		n += 1 + sovApi(uint64(m.Index))
 	}
-	if m.Length != 0 {
-		n += 1 + sovApi(uint64(m.Length))
+	if m.Len != 0 {
+		n += 1 + sovApi(uint64(m.Len))
 	}
 	l = len(m.Text)
 	if l > 0 {
 		n += 1 + l + sovApi(uint64(l))
 	}
-	if m.Revision != 0 {
-		n += 1 + sovApi(uint64(m.Revision))
-	}
-	if m.Timestamp != 0 {
-		n += 1 + sovApi(uint64(m.Timestamp))
+	if m.Version != 0 {
+		n += 1 + sovApi(uint64(m.Version))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -447,27 +353,8 @@ func (m *OperationAck) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Revision != 0 {
-		n += 1 + sovApi(uint64(m.Revision))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *DocumentUpdate) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Text)
-	if l > 0 {
-		n += 1 + l + sovApi(uint64(l))
-	}
-	if m.LastRevision != 0 {
-		n += 1 + sovApi(uint64(m.LastRevision))
+	if m.LastVersion != 0 {
+		n += 1 + sovApi(uint64(m.LastVersion))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -511,6 +398,38 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 		}
 		switch fieldNum {
 		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UserID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UserID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
 			}
@@ -529,7 +448,7 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 2:
+		case 3:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
 			}
@@ -548,11 +467,11 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 3:
+		case 4:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Length", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Len", wireType)
 			}
-			m.Length = 0
+			m.Len = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowApi
@@ -562,16 +481,16 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Length |= int32(b&0x7F) << shift
+				m.Len |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Text", wireType)
 			}
-			var byteLen int
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowApi
@@ -581,50 +500,29 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= int(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if byteLen < 0 {
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
 				return ErrInvalidLengthApi
 			}
-			postIndex := iNdEx + byteLen
+			postIndex := iNdEx + intStringLen
 			if postIndex < 0 {
 				return ErrInvalidLengthApi
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Text = append(m.Text[:0], dAtA[iNdEx:postIndex]...)
-			if m.Text == nil {
-				m.Text = []byte{}
-			}
+			m.Text = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Revision", wireType)
-			}
-			m.Revision = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Revision |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		case 6:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
 			}
-			m.Timestamp = 0
+			m.Version = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowApi
@@ -634,7 +532,7 @@ func (m *Operation) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Timestamp |= int64(b&0x7F) << shift
+				m.Version |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -692,9 +590,9 @@ func (m *OperationAck) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Revision", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field LastVersion", wireType)
 			}
-			m.Revision = 0
+			m.LastVersion = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowApi
@@ -704,111 +602,7 @@ func (m *OperationAck) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Revision |= int32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipApi(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthApi
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *DocumentUpdate) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowApi
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: DocumentUpdate: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DocumentUpdate: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Text", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthApi
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthApi
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Text = append(m.Text[:0], dAtA[iNdEx:postIndex]...)
-			if m.Text == nil {
-				m.Text = []byte{}
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LastRevision", wireType)
-			}
-			m.LastRevision = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowApi
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.LastRevision |= int32(b&0x7F) << shift
+				m.LastVersion |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
