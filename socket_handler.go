@@ -11,11 +11,87 @@ import (
 	"github.com/ssau-fiit/cloudocs-api/database"
 	api_pb "github.com/ssau-fiit/cloudocs-api/proto/api"
 	"net/http"
+	"sync"
 	"time"
 )
 
-var decoder = jsonpb.Unmarshaler{
-	AllowUnknownFields: false,
+var (
+	decoder = jsonpb.Unmarshaler{
+		AllowUnknownFields: false,
+	}
+	encoder = jsonpb.Marshaler{
+		EnumsAsInts: false,
+	}
+	opsList = operationsList{
+		mu:  make(map[string]*sync.Mutex),
+		ops: make(map[string][]*api_pb.Operation),
+	}
+)
+
+type operationsList struct {
+	mu  map[string]*sync.Mutex
+	ops map[string][]*api_pb.Operation
+}
+
+func (o *operationsList) Add(docID string, op *api_pb.Operation) error {
+	o.mu[docID].Lock()
+	defer o.mu[docID].Unlock()
+
+	db := database.Database()
+	text, err := db.Get(context.Background(), fmt.Sprintf("texts.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting document text")
+		return err
+	}
+	textBytes := []byte(text)
+
+	conflictOps := make([]*api_pb.Operation, 0, len(o.ops[docID]))
+	for _, operation := range o.ops[docID] {
+		if operation.Version == op.Version {
+			conflictOps = append(conflictOps, operation)
+		}
+	}
+
+	if len(conflictOps) > 0 {
+		for _, conflictOp := range conflictOps {
+			switch true {
+			case op.Index < conflictOp.Index:
+				switch op.Type {
+				case api_pb.OpType_INSERT:
+					conflictOp.Index += op.Len
+				case api_pb.OpType_DELETE:
+					conflictOp.Index -= op.Len
+				}
+
+			case op.Index > conflictOp.Index:
+				fallthrough
+			default:
+				switch conflictOp.Type {
+				case api_pb.OpType_INSERT:
+					op.Index += conflictOp.Len
+				case api_pb.OpType_DELETE:
+					op.Index -= conflictOp.Len
+				}
+			}
+		}
+	}
+
+	switch op.Type {
+	case api_pb.OpType_INSERT:
+		tmp := text[:op.Index]
+		textBytes = []byte(tmp + op.Text + string(textBytes[op.Index:]))
+	case api_pb.OpType_DELETE:
+		if int(op.Index) == len(textBytes) {
+			textBytes = textBytes[:op.Index-op.Len]
+		} else {
+			textBytes = append(textBytes[:op.Index-op.Len+1], textBytes[op.Index+1:]...)
+		}
+	}
+	o.ops[docID] = append(o.ops[docID], op)
+
+	_, err = db.Set(context.Background(), fmt.Sprintf("texts.%v", docID), string(textBytes), 0).Result()
+
+	return err
 }
 
 func handleSocket(c *gin.Context) {
@@ -23,6 +99,13 @@ func handleSocket(c *gin.Context) {
 	if docID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
+	}
+
+	if _, ok := opsList.mu[docID]; !ok {
+		opsList.mu[docID] = &sync.Mutex{}
+	}
+	if _, ok := opsList.ops[docID]; !ok {
+		opsList.ops[docID] = []*api_pb.Operation{}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -56,16 +139,9 @@ func handleSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	//text, err := database.Database().Get(ctx, fmt.Sprintf("texts.%v", docID)).Result()
-	//if err != nil {
-	//	log.Error().Err(err).Msg("error getting document text")
-	//	c.AbortWithStatus(http.StatusInternalServerError)
-	//	return
-	//}
-
 	for {
 		// Read incoming message from client
-		_, msg, err := conn.ReadMessage()
+		mt, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to read message from client")
 			return
@@ -87,7 +163,24 @@ func handleSocket(c *gin.Context) {
 				continue
 			}
 
-			log.Info().Interface("operation", op).Msg("operation received")
+			err = opsList.Add(docID, &op)
+			if err != nil {
+				log.Error().Err(err).Msg("error while doing operation")
+			}
+			log.Debug().Interface("operation", op).Msg("operation received")
+
+			ack := &api_pb.OperationAck{
+				LastVersion: opsList.ops[docID][len(opsList.ops[docID])-1].Version,
+			}
+			ackStr, _ := encoder.MarshalToString(ack)
+
+			resEv := &api_pb.Event{
+				Type:  api_pb.Event_OPERATION_ACK,
+				Event: []byte(ackStr),
+			}
+			res, _ := encoder.MarshalToString(resEv)
+
+			conn.WriteMessage(mt, []byte(res))
 		}
 	}
 }

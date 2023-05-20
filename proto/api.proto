@@ -8,6 +8,7 @@ message Event {
     CLIENT_JOINED = 0;
     CLIENT_QUIT = 1;
     OPERATION = 2;
+    OPERATION_ACK = 3;
   }
   EventType type = 1;
   bytes event = 2;
