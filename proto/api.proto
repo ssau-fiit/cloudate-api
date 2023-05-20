@@ -3,6 +3,16 @@ syntax = "proto3";
 package api_pb;
 option go_package = "github.com/ssau-fiit/cloudocs-api/api_pb";
 
+message Event {
+  enum EventType {
+    CLIENT_JOINED = 0;
+    CLIENT_QUIT = 1;
+    OPERATION = 2;
+  }
+  EventType type = 1;
+  bytes event = 2;
+}
+
 enum OpType {
   INSERT = 0;
   DELETE = 1;

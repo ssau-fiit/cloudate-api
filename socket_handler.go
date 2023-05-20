@@ -1,15 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/ssau-fiit/cloudocs-api/database"
+	api_pb "github.com/ssau-fiit/cloudocs-api/proto/api"
 	"net/http"
 	"time"
 )
+
+var decoder = jsonpb.Unmarshaler{
+	AllowUnknownFields: false,
+}
 
 func handleSocket(c *gin.Context) {
 	docID := c.Param("id")
@@ -49,29 +56,38 @@ func handleSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	text, err := database.Database().Get(ctx, fmt.Sprintf("texts.%v", docID)).Result()
-	if err != nil {
-		log.Error().Err(err).Msg("error getting document text")
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
+	//text, err := database.Database().Get(ctx, fmt.Sprintf("texts.%v", docID)).Result()
+	//if err != nil {
+	//	log.Error().Err(err).Msg("error getting document text")
+	//	c.AbortWithStatus(http.StatusInternalServerError)
+	//	return
+	//}
 
 	for {
 		// Read incoming message from client
-		mt, msg, err := conn.ReadMessage()
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to read message from client")
+			return
+		}
 
-		go func() {
+		var ev api_pb.Event
+		err = decoder.Unmarshal(bytes.NewReader(msg), &ev)
+		if err != nil {
+			log.Error().Err(err).Msg("error unmarshaling message")
+			continue
+		}
+
+		switch ev.Type {
+		case api_pb.Event_OPERATION:
+			var op api_pb.Operation
+			err = decoder.Unmarshal(bytes.NewReader(ev.Event), &op)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to read message from client")
-				return
+				log.Error().Err(err).Msg("error unmarshaling operation")
+				continue
 			}
 
-			fmt.Println(string(msg))
-
-			err := conn.WriteMessage(mt, []byte(text))
-			if err != nil {
-				log.Error().Err(err).Msg("failed to write message")
-			}
-		}()
+			log.Info().Interface("operation", op).Msg("operation received")
+		}
 	}
 }
