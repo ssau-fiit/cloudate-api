@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/ssau-fiit/cloudocs-api/database"
@@ -20,12 +21,14 @@ var (
 		AllowUnknownFields: false,
 	}
 	encoder = jsonpb.Marshaler{
-		EnumsAsInts: false,
+		EnumsAsInts:  false,
+		EmitDefaults: false,
 	}
 	opsList = operationsList{
 		mu:  make(map[string]*sync.Mutex),
 		ops: make(map[string][]*api_pb.Operation),
 	}
+	clients = sync.Map{}
 )
 
 type operationsList struct {
@@ -100,6 +103,10 @@ func handleSocket(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+	clientID := c.GetHeader("X-Cloudocs-ID")
+	if clientID == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+	}
 
 	if _, ok := opsList.mu[docID]; !ok {
 		opsList.mu[docID] = &sync.Mutex{}
@@ -118,6 +125,7 @@ func handleSocket(c *gin.Context) {
 		return
 	}
 
+	// Document info
 	rawRes, err := database.Database().HGetAll(ctx, fmt.Sprintf("documents.%v", docID)).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("error getting document")
@@ -132,12 +140,38 @@ func handleSocket(c *gin.Context) {
 		return
 	}
 
+	text, err := database.Database().Get(ctx, fmt.Sprintf("texts.%v", docID)).Result()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting document text")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	// upgrading connection to websocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("error upgrading connection")
 		c.AbortWithStatus(http.StatusUpgradeRequired)
 	}
 	defer conn.Close()
+
+	// storing client connection locally
+	clients.Store(clientID, conn)
+	defer clients.Delete(clientID)
+
+	// sending initial message containing document info and text
+	initMsg := &api_pb.Init{
+		DocumentName: doc.Name,
+		Text:         text,
+		LastVersion:  0,
+	}
+	initJson, _ := encoder.MarshalToString(initMsg)
+	ev := &api_pb.Event{
+		Type:  api_pb.Event_INIT,
+		Event: []byte(initJson),
+	}
+	evJson, _ := encoder.MarshalToString(ev)
+	conn.WriteMessage(websocket.TextMessage, []byte(evJson))
 
 	for {
 		// Read incoming message from client
@@ -181,6 +215,28 @@ func handleSocket(c *gin.Context) {
 			res, _ := encoder.MarshalToString(resEv)
 
 			conn.WriteMessage(mt, []byte(res))
+
+			broadcastOperations([]*api_pb.Operation{&op}, clientID)
 		}
 	}
+}
+
+func broadcastOperations(ops []*api_pb.Operation, except string) error {
+	for _, op := range ops {
+		clients.Range(func(clientID, conn any) bool {
+			if clientID.(string) == except {
+				return true
+			}
+			opJson, _ := encoder.MarshalToString(op)
+			ev := &api_pb.Event{
+				Type:  api_pb.Event_OPERATION,
+				Event: []byte(opJson),
+			}
+			evJson, _ := encoder.MarshalToString(ev)
+			conn.(*websocket.Conn).WriteMessage(websocket.TextMessage, []byte(evJson))
+			return true
+		})
+	}
+
+	return nil
 }
