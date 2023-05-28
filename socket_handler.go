@@ -160,10 +160,14 @@ func handleSocket(c *gin.Context) {
 	defer clients.Delete(clientID)
 
 	// sending initial message containing document info and text
+	var lastVer int32 = 0
+	if len(opsList.ops[docID]) > 0 {
+		lastVer = opsList.ops[docID][len(opsList.ops[docID])-1].Version
+	}
 	initMsg := &api_pb.Init{
 		DocumentName: doc.Name,
 		Text:         text,
-		LastVersion:  opsList.ops[docID][len(opsList.ops[docID])-1].Version,
+		LastVersion:  lastVer,
 	}
 	initJson, _ := encoder.MarshalToString(initMsg)
 	ev := &api_pb.Event{
