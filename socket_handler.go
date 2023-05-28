@@ -163,7 +163,7 @@ func handleSocket(c *gin.Context) {
 	initMsg := &api_pb.Init{
 		DocumentName: doc.Name,
 		Text:         text,
-		LastVersion:  0,
+		LastVersion:  opsList.ops[docID][len(opsList.ops[docID])-1].Version,
 	}
 	initJson, _ := encoder.MarshalToString(initMsg)
 	ev := &api_pb.Event{
