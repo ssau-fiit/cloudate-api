@@ -126,7 +126,7 @@ func handleCreateDocument(c *gin.Context) {
 		return
 	}
 
-	if err := db.Set(ctx, fmt.Sprintf("texts.%v", uid), "Начните писать", 0).Err(); err != nil {
+	if err := db.Set(ctx, fmt.Sprintf("texts.%v", uid), "start typing", 0).Err(); err != nil {
 		log.Error().Err(err).Msg("error creating document text")
 		db.HDel(ctx, fmt.Sprintf("documents.%v", uid))
 		c.AbortWithStatus(http.StatusInternalServerError)
